@@ -25,3 +25,6 @@ class DQN_CNN(nn.Module):
         #linear pass and reshaping with view
         x = F.relu(self.fc4(x.view(x.size[0], -1)))
         return self.fc5(x)#no activation for output layer. Maybe consider softmax?
+
+
+#note: Gym has Discrete or Box inputs from the environment. CNN's should be used with Box ??? observation types only ???
