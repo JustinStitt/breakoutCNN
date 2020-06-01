@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
+from matplotlib import pyplot
+
 
 cuda_enabled = T.cuda.is_available()
 
@@ -16,13 +18,26 @@ class DQN_CNN(nn.Module):
 
         #convolutional layers
         #first convolutional layer takes 4 in_channels. (last 4 frames of the environment)
-        self.conv1 = nn.Conv2d(1, 32, kernel_size = 8, stride = 4)#in_channels = 1 because luma (grayscale)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size = 4, stride = 2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size = 3, stride = 1)
+        #self.conv1 = nn.Conv2d(1, 32, kernel_size = 8, stride = 4)#in_channels = 1 because luma (grayscale)
+        #self.conv2 = nn.Conv2d(32, 64, kernel_size = 4, stride = 2)
+        #self.conv3 = nn.Conv2d(64, 64, kernel_size = 3, stride = 1)
         #fully connected linear layers
-        conv_out = self.calculate_conv_out_dims(input_dims)
-        self.fc4 = nn.Linear(conv_out, 512)#find smarter way to find in_channels instead of 7 * 7 * 64
-        self.fc5 = nn.Linear(512, n_actions)#output layer
+        #conv_out = self.calculate_conv_out_dims(input_dims)
+        #self.fc4 = nn.Linear(conv_out, 512)#find smarter way to find in_channels instead of 7 * 7 * 64
+        #self.fc5 = nn.Linear(512, n_actions)#output layer
+
+        self.model = nn.Sequential(
+            nn.Conv2d(1,32,8,4,0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32,64,4,2,0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64,64,3,1,0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64,512,5,4,0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512,n_actions,1,1,0)
+
+        )
 
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
         self.loss = nn.MSELoss()
@@ -43,15 +58,20 @@ class DQN_CNN(nn.Module):
 
     def forward(self, state):
         #convolutional pass
-        state = state.view(state.shape[0],state.shape[3],state.shape[1],state.shape[2])
         #print('-==state shape==-', state.shape)
-        x = F.relu(self.conv1(state))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        #linear pass and reshaping with view
-        x = F.relu(self.fc4(x.view(x.size()[0], -1)))
-        return self.fc5(x)#no activation for output layer. Maybe consider softmax?
+        state = state.view(state.shape[0],state.shape[3],state.shape[1],state.shape[2])#state.shape[0],state.shape[3]
+        #print('-==new state shape==-', state.shape)
 
+
+        #x = F.relu(self.conv1(state))
+        #x = F.relu(self.conv2(x))
+        #x = F.relu(self.conv3(x))
+        #linear pass and reshaping with view
+        #x = F.relu(self.fc4(x.view(x.size()[0], -1)))
+        #output =  self.fc5(x)#no activation for output layer. Maybe consider softmax?
+        #return output
+        out = self.model(state).squeeze(0)
+        return out
     def save_model(self, type):
         print('...saving {} model...'.format(type))
         path = save_path + type + '.pt'
@@ -66,8 +86,8 @@ class DQN_CNN(nn.Module):
 #note: Gym has Discrete or Box inputs from the environment. CNN's should be used with Box ??? observation types only ???
 
 class Agent:
-    def __init__(self, gamma, epsilon, lr, input_dims, batch_size, n_actions, max_mem_size = 25000,
-                eps_min = 0.01, eps_dec = 5e-4):
+    def __init__(self, gamma, epsilon, lr, input_dims, batch_size, n_actions, max_mem_size = 250000,
+                eps_min = 0.1, eps_dec = 5e-4):
         self.gamma = gamma
         self.epsilon = epsilon
         self.eps_min = eps_min

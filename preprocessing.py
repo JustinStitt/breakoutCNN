@@ -11,5 +11,6 @@ def downsample(img):
 
 def preprocess(img):
     _img =  to_grayscale(downsample(img))#perform both preprocessing steps and return new img
+    _img = _img[25:-8,3:-3]
     _img.shape = (_img.shape[0],_img.shape[1],1)
     return _img
