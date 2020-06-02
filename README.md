@@ -32,7 +32,7 @@ of a given image.
 
 How a filter works (kernel size = (3x3) and zero-padding of 1):
 
-![](CNN_kernel_img.png)
+![](visuals/CNN_kernel_img.png)
 
 An example of a filter that identifies vertical lines:
 
