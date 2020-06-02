@@ -1,63 +1,79 @@
-import gym
 import sys, os, time
+import gym
 import numpy as np
-from DQN_CNN import Agent
-from matplotlib import pyplot
-from preprocessing import preprocess as pp
+from agent import DDQNAgent
+from utils import plot_learning_curve, make_env
 
 render = False
-to_load = False
 to_save = True
+to_load = False
+
+print('Render: ', render)
+print('Save: ', to_save)
+print('Load: ', to_load)
 
 if __name__ == '__main__':
-    env = gym.make('BreakoutDeterministic-v4')
+    env = make_env('BreakoutNoFrameskip-v4')#from utils
 
-    dims = pp(env.reset()).shape#take sample of environment and preprocess it to determine input's shape
-
-    agent = Agent(gamma = 0.99, epsilon = 1.0, batch_size = 32,
-                    input_dims = dims, n_actions = env.action_space.n,  lr = 0.0000625, eps_dec = 1e-5)
-    #observation space.shape = (210,160,3)
-    #pp observationspace.shape = (105,80,1)
-    if os.path.isfile('saved_models/saved_model_local.pt') and to_load:
+    best_score = -np.inf
+    agent = DDQNAgent(gamma = 0.99, epsilon = 1.0, lr = 0.0001789,
+                        input_dims = (env.observation_space.shape),
+                        n_actions = env.action_space.n, mem_size = 60_000,
+                        eps_min = 0.1, batch_size = 32, replace = 7_500, eps_dec = 1e-5)
+    #try replace = 10_000 and lr = 0.000091
+    if os.path.isfile('trained_model/local.pt') and to_load:
         agent.load_agent()
-        agent.epsilon = agent.eps_min
+        agent.epsilon = agent.eps_min#we currently aren't saving epsilon so just set to min
 
-    scores = []
-    epochs = 10_000
-    score = 0
+    epochs = 1_000
+
+    figure_file = 'plots/post_training_plot.png'
+    steps = 0
+    scores, eps_history, steps_array = [], [] ,[]
+
+    start_time = time.time()
+    time_elapsed = time.time()
+    end_time = start_time
 
     for i in range(epochs):
-        if i % 1 == 0 and i > 0:
-            avg_score = np.mean(scores[-100:])#avg of last 100 scores
-            print('epoch: ', i, 'score: ', score, 'avg score: %.3f ' % avg_score,
-                        'epsilon: %.4f' % agent.epsilon)
-
-        if i % 50 == 0 and i > 0 and to_save:
-            agent.save_agent()
-
-        score = 0
-        observation = env.reset()
-        observation = pp(observation)
-        #print('-==OB SHAPE==-', observation.shape)
-        #new_ob = pp(observation)
-        #print('-=PP OBS=-', new_ob.shape)
-
-
         done = False
+        observation = env.reset()
+        score = 0
         while not done:
             if render:
                 env.render()
-                #im_to_show = observation[::1,::1,-1]
-                #print('shown image shape: ', im_to_show.shape)
-                #pyplot.imshow(im_to_show, cmap='gray')
-                #pyplot.show()
-            action = agent.choose_action(observation)#adding to frames
+
+            action = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
-            observation_ = pp(observation_)
             score += reward
-            agent.store_transition(observation, action, reward, observation_, done)#adding to frames
+
+            agent.store_memory(observation, action, reward, observation_, int(done))
             agent.learn()
+
             observation = observation_
+            steps += 1
         scores.append(score)
+        steps_array.append(steps)
+
+        avg_score = np.mean(scores[-100:])#avg of last 100 scores
+        passed_time = time.time() - time_elapsed
+        time_elapsed = time.time()
+        print('epoch: ', i, ' score: ', score, ' avg score: %.2f' % avg_score,
+                    ' best score: %.2f' % best_score, ' epsilon: %.3f' % agent.epsilon,
+                        ' steps: ', steps, ' time elapsed: %.3f' % passed_time)
+        pass
+        if i % 50 == 0 and i > 0 and to_save:
+            agent.save_agent()
+
+        if avg_score > best_score:
+            best_score = avg_score
+
+        eps_history.append(agent.epsilon)
+    total_time = time.time() - start_time
+    print('total time elapsed (seconds) : %.3f' % total_time)
+
     if to_save:
         agent.save_agent()
+
+    x = [i + 1 for i in range(len(scores))]
+    plot_learning_curve(steps_array, scores, eps_history, figure_file)
