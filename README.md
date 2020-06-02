@@ -41,7 +41,7 @@ An example of a filter that identifies vertical lines:
 Example model architecture with (28x28x1) images being passed in as input. (28x28) are the dimensions and there is only one color channel (grayscale)
 , hence we have (28x28x1) input shape. Converting an image to grayscale helps reduce computation time as there are less dimensions to worry about.
 
-![](model_architecture_img.jpg)
+![](visuals/model_architecture_img.jpg)
 
 We combine several convolutional layers as well as some traditional fully-connected layers.
 
